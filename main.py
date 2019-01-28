@@ -66,6 +66,7 @@ def get_data(r):
 
 admin_commands = {'/save': save_data}
 
+
 @app.route('/', methods=['POST', 'GET'])
 def index():
     if request.method == 'POST':
