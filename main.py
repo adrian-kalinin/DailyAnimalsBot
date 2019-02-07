@@ -1,100 +1,92 @@
 from flask import Flask, request, jsonify
-import requests
 from flask_sslify import SSLify
+import requests
+import telebot
 import json
 import pickle
+
 
 app = Flask(__name__)
 sslify = SSLify(app)
 
-token = ''
-admin = 291702642
-users = set()
+token = 'token_from_botfather'
+bot = telebot.TeleBot(token)
 
-stat = {'cats': 0}
+admin = 291702642
+stat = {'cats': 0, 'dogs' : 0}
 users = set()
 
 
 def load_data():
     global stat, users
-    try:
-        with open('stat.json', 'r', encoding='utf-8') as file: 
-            stat = json.load(file)
-        with open('users.bin', 'rb') as file:
-            users = pickle.load(file)
-    except:
-        pass
+    with open('stat.json', 'r', encoding='utf-8') as file:
+        stat.update(json.load(file))
+    with open('users.bin', 'rb') as file:
+        users = pickle.load(file)
 
-def save_data(chat_id):
+def save_data():
     global stat, users
-
     with open('stat.json', 'w', encoding='utf-8') as file:
         json.dump(stat, file)
     with open('users.bin', 'wb') as file:
         pickle.dump(users, file)
-    text = 'Данные успешно сохранены.'
-    send_message(chat_id, text)
-                  
-def send_message(chat_id, text, buttons=[['Получить котика!']]):
-    global token
-    url = f'https://api.telegram.org/bot{token}/sendMessage'
-    keyboard = {'keyboard': buttons, 'resize_keyboard': True}
-    answer = {'chat_id': chat_id, 'text': text, 'reply_markup': keyboard}
-    requests.post(url, json=answer)
+    bot.send_message(admin, 'Данные успешно сохранены.')
 
-def send_cat(chat_id):
-    global token
-    cat = requests.get('https://api.thecatapi.com/v1/images/search?api_key=ccdeda03-f77a-4657-9d3a-7468a50ea9e8').json()[0]['url']
-    url = f'https://api.telegram.org/bot{token}/sendPhoto?chat_id={chat_id}&photo={cat}'
-    requests.get(url)
+
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    global users
+    if not message.chat.id in users: users.add(message.chat.id)
+    user_markup = telebot.types.ReplyKeyboardMarkup(True, False)
+    user_markup.row('Получить котика :3')
+    user_markup.row('Предпочитаю пёсиков!')
+    bot.send_message(message.chat.id, 'Приветики, спасибо за использования бота :3 \
+                                       @tweather_bot - основной проект.', reply_markup=user_markup)
+
+
+@bot.message_handler(commands=['stat'])
+def handle_stat(message):
+    global stat, users, admin
+    if message.chat.id == admin:
+        bot.send_message(message.chat.id, f'{len(users)} users.\n{stat["cats"]} cats.\n{stat["dogs"]} dogs.')
+
+
+@bot.message_handler(commands=['users'])
+def handle_users(message):
+    global users, admin
+    if message.chat.id == admin:
+        text = ''
+        for user in users:
+            text += str(user) + ' '
+        bot.send_message(message.chat.id, text)
+
+
+@bot.message_handler(commands=['save'])
+def handle_save(message):
+    save_data()
+
+
+@bot.message_handler(content_types=['text'])
+def handle_picture(message):
     global stat
-    stat['cats'] += 1
+    if message.text == 'Получить котика :3' or message.text == '/cat' or message.text == '/cat@CasualCatsBot':
+        cat = requests.get('https://api.thecatapi.com/v1/images/search').json()[0]['url']
+        bot.send_photo(message.chat.id, requests.get(cat).content)
+        stat['cats'] += 1
 
-def get_data(r):
-        if 'message' in r:
-            if 'text' in r['message']:
-                data = {'chat_id': r['message']['chat']['id'],
-                        'text': r['message']['text'],
-                        'type': r['message']['chat']['type']}
-
-                global users
-                if data['type'] == 'private' and data['chat_id'] not in users: users.add(data['chat_id'])
-
-                return data
-        else:
-            return None
-
-admin_commands = {'/save': save_data}
+    elif message.text == 'Предпочитаю пёсиков!' or message.text == '/dog' or message.text == '/dog@CasualCatsBot':
+        dog = requests.get('https://api.thecatapi.com/v1/images/search').json()[0]['url']
+        bot.send_photo(message.chat.id, requests.get(dog).content)
+        stat['dogs'] += 1
 
 
 @app.route('/', methods=['POST', 'GET'])
 def index():
     if request.method == 'POST':
         r = request.get_json()
-        data = get_data(r)
 
-        global admin, stat, users
-        text = ''
-
-        if not data == None:
-            if data['text'] == '/start':
-                text = 'Приветики, спасибо за использования бота :3'
-                send_message(data['chat_id'], text)
-
-            elif data['text'] == '/cat' or data['text'] == 'Получить котика!' or data['text'] == '/cat@CasualCatsBot':
-                send_cat(data['chat_id'])
-
-            elif data['text'] == '/stat' and data['chat_id'] == admin:
-                text = f'{stat["cats"]} cats.\n{len(users)}'
-                send_message(data['chat_id'], text)
-
-            elif data['text'] == '/users' and data['chat_id'] == admin:
-                for user in users:
-                    text += str(user) + '\n'
-                send_message(data['chat_id'], text)
-
-            elif data['text'] == '/save' and data['chat_id'] == admin:
-                save_data(data['chat_id'])
+        update = telebot.types.Update.de_json(r)
+        bot.process_new_updates([update])
 
         return jsonify(r)
     return '<link rel="icon" href="data:;base64,=">'
@@ -102,4 +94,6 @@ def index():
 
 if __name__ == '__main__':
     load_data()
+    bot.remove_webhook()
+    bot.set_webhook('your_webhook_url')
     app.run(host='0.0.0.0', port=8080)
