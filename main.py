@@ -75,7 +75,7 @@ def handle_picture(message):
         stat['cats'] += 1
 
     elif message.text == 'Предпочитаю пёсиков!' or message.text == '/dog' or message.text == '/dog@CasualCatsBot':
-        dog = requests.get('https://api.thecatapi.com/v1/images/search').json()[0]['url']
+        dog = requests.get('https://api.thedogapi.com/v1/images/search').json()[0]['url']
         bot.send_photo(message.chat.id, requests.get(dog).content)
         stat['dogs'] += 1
 
