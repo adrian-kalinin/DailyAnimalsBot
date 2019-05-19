@@ -36,7 +36,7 @@ def handle_stat(message):
 
 
 def check_mass(msg):
-    return msg.from_user.id in config.admins and msg.text and'/mass' in msg.text
+    return msg.from_user.id in config.admins and (msg.text and'/mass' in msg.text or msg.caption and '/mass' in msg.caption)
 
 
 @bot.message_handler(func=check_mass)
@@ -47,7 +47,10 @@ def handle_mass_mailing(message):
 
 
 def mass_mailing(message):
-    text = message.text.replace('/mass ', '')
+    if msg.text:
+        text = message.text.replace('/mass ', '')
+    else:
+        text = message.caption.replace('/mass ', '')
     with DBHelper() as db:
         users = db.get_users()
         succesful, failed = 0, 0
