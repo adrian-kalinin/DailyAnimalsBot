@@ -84,20 +84,11 @@ def handle_picture(message):
         sc.append_dog()
 
 
-@bot.inline_handler(lambda query: query.query == 'cat')
+@bot.inline_handler(lambda query: query.query in ('cat', 'dog'))
 def query_photo(inline_query):
     results = set()
     while len(results) < 8:
-        url = requests.get('https://api.thecatapi.com/v1/images/search').json()[0]['url']
-        results.add(telebot.types.InlineQueryResultPhoto(f'cat{len(results)}', url, url))
-    bot.answer_inline_query(inline_query.id, results, cache_time=1)
-
-
-@bot.inline_handler(lambda query: query.query == 'dog')
-def query_photo(inline_query):
-    results = set()
-    while len(results) < 8:
-        url = requests.get('https://api.thedogapi.com/v1/images/search').json()[0]['url']
+        url = requests.get(f'https://api.the{inline_query.query}api.com/v1/images/search').json()[0]['url']
         results.add(telebot.types.InlineQueryResultPhoto(f'cat{len(results)}', url, url))
     bot.answer_inline_query(inline_query.id, results, cache_time=1)
 
