@@ -1,147 +1,168 @@
-from pip._internal.utils import logging
-
-from database import DBHelper, StatCounter
-import requests
-import telebot
-import cherrypy
+from telegram.ext import Updater, Filters, CommandHandler, CallbackQueryHandler, MessageHandler
+from app import constants, handlers, filters
+import logging
 import config
-import time
-
-bot = telebot.TeleBot(config.token)
-sc = StatCounter()
 
 
-@bot.message_handler(commands=['start', 'start@CasualCatsBot'])
-def handle_start(message):
-    with DBHelper() as db:
-        if not db.check_user(message.chat.id):
-            db.add_user(message.chat.id)
+# set logging
+logging.basicConfig(
+    format='%(asctime)s – %(levelname)s – %(message)s',
+    datefmt='%m/%d/%Y %I:%M:%S %p',
+    level=logging.INFO
+)
 
-    if message.chat.id > 0:
-        user_markup = telebot.types.ReplyKeyboardMarkup(True, False)
-        user_markup.row('Получить котика :3')
-        user_markup.row('Предпочитаю пёсиков!')
-
-    text = 'Приветики, спасибо за использования бота :3'
-    bot.send_message(message.chat.id, text, reply_markup=user_markup)
+# create updater and dispatcher
+updater = Updater(token=config.token, use_context=True)
+dispatcher = updater.dispatcher
 
 
-@bot.message_handler(commands=['stat'])
-def handle_stat(message):
-    with DBHelper() as db:
-        users = db.get_users()
-        text = f'{len(users)} users.\n{sc.cats} cats.\n{sc.dogs} dogs.'
-        sc.save_data()
-        bot.send_message(message.chat.id, text)
+def setup_service_handlers():
+    # handle all errors
+    dispatcher.add_error_handler(handlers.handle_error)
+
+    # handle command /admin and provide admin panel
+    dispatcher.add_handler(CommandHandler(
+        command=constants.admin_command,
+        filters=Filters.user(user_id=config.admins) & Filters.private,
+        callback=handlers.handle_admin
+    ))
+
+    # reboot the bot
+    dispatcher.add_handler(CallbackQueryHandler(
+        pattern=constants.reboot_callback,
+        callback=handlers.handle_reboot
+    ))
+
+    # send mailing form
+    dispatcher.add_handler(CallbackQueryHandler(
+        pattern=constants.mailing_callback,
+        callback=handlers.handle_mailing
+    ))
+
+    # send statistics about the bot
+    dispatcher.add_handler(CallbackQueryHandler(
+        pattern=constants.statistics_callback,
+        callback=handlers.handle_statistics
+    ))
 
 
-def check_mass(msg):
-    return msg.from_user.id in config.admins and (msg.text and'/mass' in msg.text or msg.caption and '/mass' in msg.caption)
+def setup_mailing_handlers():
+    # cancel adding content to mailing message
+    dispatcher.add_handler(MessageHandler(
+        filters=(Filters.regex(constants.cancel_adding_button) & filters.adding_filter
+                 & Filters.user(user_id=config.admins) & Filters.private),
+        callback=handlers.handle_cancel_adding
+    ))
+
+    # cancel mailing and delete the data
+    dispatcher.add_handler(MessageHandler(
+        filters=(Filters.regex(constants.cancel_mailing_button) & filters.mailing_filter
+                 & Filters.user(user_id=config.admins) & Filters.private),
+        callback=handlers.handle_cancel_mailing
+    ))
+
+    # send mailing message to everyone
+    dispatcher.add_handler(MessageHandler(
+        filters=(Filters.regex(constants.send_mailing_button) & filters.mailing_filter
+                 & Filters.user(user_id=config.admins) & Filters.private),
+        callback=handlers.handle_send_mailing
+    ))
+
+    # send preview of the mailing message
+    dispatcher.add_handler(MessageHandler(
+        filters=(Filters.regex(constants.preview_button) & filters.mailing_filter
+                 & Filters.user(user_id=config.admins) & Filters.private),
+        callback=handlers.handle_preview
+    ))
+
+    # set state before adding to the mailing message
+    dispatcher.add_handler(MessageHandler(
+        filters=(Filters.regex(constants.add_content_button) & filters.mailing_filter
+                 & Filters.user(user_id=config.admins) & Filters.private),
+        callback=handlers.handle_add_content
+    ))
+
+    # add content to the mailing message
+    dispatcher.add_handler(MessageHandler(
+        filters=((Filters.text | Filters.photo) & filters.adding_filter
+                 & Filters.user(user_id=config.admins) & Filters.private),
+        callback=handlers.handle_mailing_content
+    ))
 
 
-@bot.message_handler(func=check_mass)
-def handle_mass_mailing(message):
-    succesful, failed = mass_mailing(message)
-    text = (f'Message has been sent to {succesful} users.\n! {failed} users were deleted.')
-    bot.send_message(message.chat.id, text)
+def setup_menu_handlers():
+    # handle cat button
+    dispatcher.add_handler(MessageHandler(
+        filters=Filters.regex(constants.cat_button),
+        callback=handlers.handle_cat
+    ))
+
+    # handle dog button
+    dispatcher.add_handler(MessageHandler(
+        filters=Filters.regex(constants.dog_button),
+        callback=handlers.handle_dog
+    ))
+
+    # handle lang button
+    dispatcher.add_handler(MessageHandler(
+        filters=Filters.regex(constants.lang_button) & Filters.private,
+        callback=handlers.handle_change_lang
+    ))
+
+    # handle help button
+    dispatcher.add_handler(MessageHandler(
+        filters=Filters.regex(constants.help_button) & Filters.private,
+        callback=handlers.soon
+    ))
+
+    # handle send button
+    dispatcher.add_handler(MessageHandler(
+        filters=Filters.regex(constants.send_button) & Filters.private,
+        callback=handlers.soon
+    ))
 
 
-def mass_mailing(message):
-    if msg.text:
-        text = message.text.replace('/mass ', '')
-    else:
-        text = message.caption.replace('/mass ', '')
-    with DBHelper() as db:
-        users = db.get_users()
-        succesful, failed = 0, 0
-
-        for user in users:
-            try:
-                if message.photo:
-                    bot.send_photo(user, message.photo, caption=text)
-                else:
-                    bot.send_message(user, text)
-                succesful += 1
-                time.sleep(1 / 30)
-
-            except telebot.apihelper.ApiException:
-                db.del_user(user)
-                failed += 1
-
-        return succesful, failed
+def setup_inline_handlers():
+    # reboot the bot
+    dispatcher.add_handler(CallbackQueryHandler(
+        pattern=constants.lang_inline_button,
+        callback=handlers.handle_inline_lang
+    ))
 
 
-@bot.message_handler(content_types=['text'])
-def handle_picture(message):
-    if message.text in ('Получить котика :3', '/cat', '/cat@CasualCatsBot'):
-        data = requests.get('https://api.thecatapi.com/v1/images/search').json()
-        bot.send_photo(message.chat.id, requests.get(data[0]['url']).content)
-        sc.append_cat()
+def setup_commands_handlers():
+    # handle command /start
+    dispatcher.add_handler(CommandHandler(
+        filters=Filters.private,
+        command=constants.start_command,
+        callback=handlers.handle_start
+    ))
 
-    elif message.text in ('Предпочитаю пёсиков!', '/dog', '/dog@CasualCatsBot'):
-        data = requests.get('https://api.thedogapi.com/v1/images/search').json()
-        bot.send_photo(message.chat.id, requests.get(data[0]['url']).content)
-        sc.append_dog()
+    # handle command /cat
+    dispatcher.add_handler(CommandHandler(
+        command=constants.cat_command,
+        callback=handlers.handle_cat
+    ))
 
-
-@bot.inline_handler(lambda query: query.query in ('cat', 'dog'))
-def query_photo(inline_query):
-    results = set()
-    while len(results) < 8:
-        url = requests.get(f'https://api.the{inline_query.query}api.com/v1/images/search').json()[0]['url']
-        results.add(telebot.types.InlineQueryResultPhoto(f'cat{len(results)}', url, url))
-    bot.answer_inline_query(inline_query.id, results, cache_time=1)
-
-
-class WebhookServer(object):
-    @cherrypy.expose
-    def index(self):
-        if 'content-length' in cherrypy.request.headers and \
-                'content-type' in cherrypy.request.headers and \
-                cherrypy.request.headers['content-type'] == 'application/json':
-
-            length = int(cherrypy.request.headers['content-length'])
-            json_string = cherrypy.request.body.read(length).decode("utf-8")
-            update = telebot.types.Update.de_json(json_string)
-            bot.process_new_updates([update])
-            return ''
-        else:
-            raise cherrypy.HTTPError(403)
+    # handle command /dog
+    dispatcher.add_handler(CommandHandler(
+        command=constants.dog_command,
+        callback=handlers.handle_dog
+    ))
 
 
 def main():
-    WEBHOOK_HOST = config.host
-    WEBHOOK_PORT = config.port
-    WEBHOOK_LISTEN = '0.0.0.0'
+    # setup all handlers
+    setup_service_handlers()
+    setup_mailing_handlers()
+    setup_commands_handlers()
+    setup_inline_handlers()
+    setup_menu_handlers()
 
-    WEBHOOK_SSL_CERT = './webhook_cert.pem'
-    WEBHOOK_SSL_PRIV = './webhook_pkey.pem'
-
-    WEBHOOK_URL_BASE = f'https://{WEBHOOK_HOST}:{WEBHOOK_PORT}'
-    WEBHOOK_URL_PATH = f'/{config.token}/'
-
-    logger = telebot.logger
-    telebot.logger.setLevel(logging.INFO)
-
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH,
-                    certificate=open(WEBHOOK_SSL_CERT, 'r'))
-
-    access_log = cherrypy.log.access_log
-    for handler in tuple(access_log.handlers):
-        access_log.removeHandler(handler)
-
-    cherrypy.config.update({
-        'server.socket_host': WEBHOOK_LISTEN,
-        'server.socket_port': WEBHOOK_PORT,
-        'server.ssl_module': 'builtin',
-        'server.ssl_certificate': WEBHOOK_SSL_CERT,
-        'server.ssl_private_key': WEBHOOK_SSL_PRIV
-    })
-
-    cherrypy.quickstart(WebhookServer(), WEBHOOK_URL_PATH, {'/': {}})
+    # run the bot
+    updater.start_polling()
+    logging.info('Bot has been started.')
 
 
 if __name__ == '__main__':
-    bot.remove_webhook()
-    bot.polling(none_stop=True)
+    main()
