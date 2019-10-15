@@ -4,7 +4,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMa
 
 main_buttons = {
     'en': [
-        ['🐱 Cat 🐱', '🐶 Dog 🐶'],
+        ['🐱 Kitty 🐱', '🐶 Doggy 🐶'],
         ['Change Language', 'Help'],
         ['Send to a Friend']
     ],
@@ -68,8 +68,8 @@ mailing_keyboard = {
 }
 
 mailing_markup = {
-    'en': ReplyKeyboardMarkup(mailing_keyboard['en']),
-    'ru': ReplyKeyboardMarkup(mailing_keyboard['ru'])
+    'en': ReplyKeyboardMarkup(mailing_keyboard['en'], resize_keyboard=True),
+    'ru': ReplyKeyboardMarkup(mailing_keyboard['ru'], resize_keyboard=True)
 }
 
 # cancel markup
@@ -80,8 +80,8 @@ cancel_keyboard = {
 }
 
 cancel_markup = {
-    'en': ReplyKeyboardMarkup(cancel_keyboard['en']),
-    'ru': ReplyKeyboardMarkup(cancel_keyboard['ru'])
+    'en': ReplyKeyboardMarkup(cancel_keyboard['en'], resize_keyboard=True),
+    'ru': ReplyKeyboardMarkup(cancel_keyboard['ru'], resize_keyboard=True)
 }
 
 # commands

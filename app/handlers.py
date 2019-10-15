@@ -97,7 +97,8 @@ def handle_mailing(update: Update, context: CallbackContext):
 
     markup = mailing_markup[lang]
     text = messages['mailing'][lang].format(*empty_data.values())
-    context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode='HTML')
+    context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode='HTML',
+                             disable_web_page_preview=True)
 
 
 # set state before adding content to the message for mailing
@@ -171,7 +172,8 @@ def handle_mailing_content(update: Update, context: CallbackContext):
         chat_id=update.message.from_user.id,
         text=messages['mailing'][lang].format(*response['data'].values()),
         reply_markup=mailing_markup[lang],
-        parse_mode='HTML'
+        parse_mode='HTML',
+        disable_web_page_preview=True
     )
 
 

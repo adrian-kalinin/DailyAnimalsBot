@@ -1,8 +1,9 @@
 import sqlite3
+import config
 
 
 class DataBase:
-    def __init__(self, name='users'):
+    def __init__(self, name=config.database_path):
         self.name = name
         self.conn = sqlite3.connect(name + '.sqlite')
 
@@ -58,12 +59,14 @@ class DataBase:
         return result.fetchone()[0]
 
     def set(self, user_id, item, data):
+        self.add_user(user_id=user_id)
         if self.check_user(user_id):
             stat = f'UPDATE {self.name} SET {item} = (?) WHERE user_id = (?)'
             self.conn.execute(stat, (data, user_id))
             self.conn.commit()
 
     def get(self, user_id, item):
+        self.add_user(user_id=user_id)
         if self.check_user(user_id):
             stat = f'SELECT {item} FROM {self.name} WHERE user_id = (?)'
             result = self.conn.execute(stat, [user_id]).fetchone()

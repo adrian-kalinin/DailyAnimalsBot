@@ -6,7 +6,8 @@ from .database import DataBase
 
 from functools import wraps
 import logging
-import sys, os
+import sys
+import os
 
 
 def send_action(action):

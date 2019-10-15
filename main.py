@@ -1,6 +1,7 @@
 from telegram.ext import Updater, Filters, CommandHandler, CallbackQueryHandler, MessageHandler
-from app import constants, handlers, filters
 import logging
+
+from app import constants, handlers, filters
 import config
 
 
@@ -112,13 +113,13 @@ def setup_menu_handlers():
     # handle help button
     dispatcher.add_handler(MessageHandler(
         filters=Filters.regex(constants.help_button) & Filters.private,
-        callback=handlers.soon
+        callback=handlers.soon  # TODO
     ))
 
     # handle send button
     dispatcher.add_handler(MessageHandler(
         filters=Filters.regex(constants.send_button) & Filters.private,
-        callback=handlers.soon
+        callback=handlers.soon  # TODO
     ))
 
 
@@ -159,8 +160,17 @@ def main():
     setup_inline_handlers()
     setup_menu_handlers()
 
-    # run the bot
-    updater.start_polling()
+    # setup webhook
+    updater.start_webhook(
+        listen=config.listen,
+        port=config.port,
+        url_path=config.token,
+        key=config.key_path,
+        cert=config.cert_path,
+        webhook_url=config.webhook_url
+    )
+
+    # log the start
     logging.info('Bot has been started.')
 
 
