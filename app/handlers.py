@@ -1,16 +1,19 @@
-from telegram import ChatAction, Update, PhotoSize, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ChatAction, Update, PhotoSize, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResultPhoto
 from telegram.ext import CallbackContext
 from telegram.error import TelegramError, Unauthorized
 
 from threading import Thread
+from uuid import uuid4
 import validators
 import requests
 import logging
 
-from .constants import messages, admin_markup, mailing_markup, main_markup, cancel_markup, lang_markup, states
+from .constants import admin_markup, mailing_markup, main_markup, cancel_markup, lang_markup, switch_markup
 from .tools import send_action, stop_and_restart, strip, send_mailing, validate_tags
+from .constants import messages, states
 from .database import DataBase
 from .statebase import StateBase
+from . import constants
 
 import config
 
@@ -292,29 +295,15 @@ def handle_start(update: Update, context: CallbackContext):
     )
 
 
-# send a picture with a cat to the user
+# send a picture with a cat or a dog to the user
 @send_action(ChatAction.UPLOAD_PHOTO)
-def handle_cat(update: Update, context: CallbackContext):
+def handle_animal(update: Update, context: CallbackContext):
+    animal = constants.animals[update.message.text]
     with DataBase() as db:
 
-        data = requests.get('https://api.thecatapi.com/v1/images/search?mime_type=png,jpg').json()
-        cats = db.get(user_id=update.message.from_user.id, item='cats')
-        db.set(user_id=update.message.from_user.id, item='cats', data=cats + 1)
-
-    context.bot.send_photo(
-        chat_id=update.message.chat_id,
-        photo=data[0]['url']
-    )
-
-
-# send a picture with a dog to the user
-@send_action(ChatAction.UPLOAD_PHOTO)
-def handle_dog(update: Update, context: CallbackContext):
-    with DataBase() as db:
-
-        data = requests.get('https://api.thedogapi.com/v1/images/search?mime_type=png,jpg').json()
-        dogs = db.get(user_id=update.message.from_user.id, item='dogs')
-        db.set(user_id=update.message.from_user.id, item='dogs', data=dogs + 1)
+        data = requests.get(config.api_base_url.format(animal)).json()
+        animals = db.get(user_id=update.message.from_user.id, item=animal + 's')
+        db.set(user_id=update.message.from_user.id, item=animal + 's', data=animals + 1)
 
     context.bot.send_photo(
         chat_id=update.message.chat_id,
@@ -356,6 +345,30 @@ def handle_inline_lang(update: Update, context: CallbackContext):
         )
 
 
-# soon
-def soon(update: Update, context: CallbackContext):
-    context.bot.send_message(chat_id=update.message.chat_id, text='soon')
+# send inline result
+def handle_inline(update: Update, context: CallbackContext):
+    animal = update.inline_query.query
+    results = set()
+
+    while len(results) < config.max_inline_pics:
+        url = requests.get(config.api_base_url.format(animal)).json()[0]['url']
+        results.add(InlineQueryResultPhoto(
+            id=uuid4(),
+            photo_url=url,
+            thumb_url=url,
+            caption=f'by @{context.bot.username}'
+
+        ))
+
+    update.inline_query.answer(results, cache_time=1)
+
+
+# get markup with switch-buttons, open any chat and insert inline request
+def handle_send_to_friend(update: Update, context: CallbackContext):
+    with DataBase() as db:
+        lang = db.get(user_id=update.message.from_user.id, item='lang')
+        context.bot.send_message(
+            chat_id=update.message.chat_id,
+            text=messages['switch'][lang],
+            reply_markup=switch_markup[lang]
+        )

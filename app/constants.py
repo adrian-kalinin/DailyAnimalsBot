@@ -5,13 +5,11 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMa
 main_buttons = {
     'en': [
         ['🐱 Kitty 🐱', '🐶 Doggy 🐶'],
-        ['Change Language', 'Help'],
-        ['Send to a Friend']
+        ['Change Language', 'Send to a Friend']
     ],
     'ru': [
         ['🐱 Котик 🐱', '🐶 Собачка 🐶'],
-        ['Сменить язык', 'Помощь'],
-        ['Послать другу']
+        ['Сменить язык', 'Послать другу']
     ]
 }
 
@@ -97,8 +95,9 @@ dog_command = 'dog'
 cat_button = '({})|({})'.format(*(item[0][0] for item in main_buttons.values()))
 dog_button = '({})|({})'.format(*(item[0][1] for item in main_buttons.values()))
 lang_button = '({})|({})'.format(*(item[1][0] for item in main_buttons.values()))
-help_button = '({})|({})'.format(*(item[1][1] for item in main_buttons.values()))
-send_button = '({})|({})'.format(*(item[2][0] for item in main_buttons.values()))
+send_button = '({})|({})'.format(*(item[1][1] for item in main_buttons.values()))
+
+animals_button = '|'.join([cat_button, dog_button])
 
 send_mailing_button = '({})|({})'.format(*(item[0][0] for item in mailing_keyboard.values()))
 preview_button = '({})|({})'.format(*(item[0][1] for item in mailing_keyboard.values()))
@@ -112,6 +111,39 @@ add_content_button = '|'.join([add_text_button, add_photo_button, add_button_but
 cancel_adding_button = '({})|({})'.format(*(item[0][0] for item in cancel_keyboard.values()))
 
 lang_inline_button = '(change_lang_en)|(change_lang_ru)'
+
+# switch markup
+
+switch_keyboard = {
+    'en': [
+        [InlineKeyboardButton(text='Kitty 🐱', switch_inline_query='cat'),
+         InlineKeyboardButton(text='Doggy 🐶', switch_inline_query='dog')]
+    ],
+    'ru': [
+        [InlineKeyboardButton(text='Котик 🐱', switch_inline_query='cat'),
+         InlineKeyboardButton(text='Собачка 🐶', switch_inline_query='dog')]
+    ]
+}
+
+switch_markup = {
+    'en': InlineKeyboardMarkup(switch_keyboard['en']),
+    'ru': InlineKeyboardMarkup(switch_keyboard['ru'])
+}
+
+
+# animals
+
+animals = {
+    f'/{cat_command}': 'cat',
+    main_buttons['en'][0][0]: 'cat',
+    main_buttons['ru'][0][0]: 'cat',
+
+    f'/{dog_command}': 'dog',
+    main_buttons['en'][0][1]: 'dog',
+    main_buttons['ru'][0][1]: 'dog',
+}
+
+animals_pattern = '(cat)|(dog)'
 
 # mailing states
 
@@ -224,5 +256,12 @@ messages = {
     'changed': {
         'en': 'Language has been changed to English 🇬🇧',
         'ru': 'Язык был изменен на Русский 🇷🇺'
+    },
+
+    'switch': {
+        'en': '💬 Pressing a button will prompt you to select one of your chats and send a picture to your friend. '
+              'Now choose what to send: ',
+        'ru': '💬  Нажатие кнопки предложит вам выбрать один из ваших чатов и отправить фотографию своему другу. '
+              'Теперь выберите, что отправить:'
     }
 }

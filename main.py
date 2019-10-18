@@ -1,4 +1,4 @@
-from telegram.ext import Updater, Filters, CommandHandler, CallbackQueryHandler, MessageHandler
+from telegram.ext import Updater, Filters, CommandHandler, CallbackQueryHandler, MessageHandler, InlineQueryHandler
 import logging
 
 from app import constants, handlers, filters
@@ -94,14 +94,8 @@ def setup_mailing_handlers():
 def setup_menu_handlers():
     # handle cat button
     dispatcher.add_handler(MessageHandler(
-        filters=Filters.regex(constants.cat_button),
-        callback=handlers.handle_cat
-    ))
-
-    # handle dog button
-    dispatcher.add_handler(MessageHandler(
-        filters=Filters.regex(constants.dog_button),
-        callback=handlers.handle_dog
+        filters=Filters.regex(constants.animals_button),
+        callback=handlers.handle_animal
     ))
 
     # handle lang button
@@ -110,24 +104,24 @@ def setup_menu_handlers():
         callback=handlers.handle_change_lang
     ))
 
-    # handle help button
-    dispatcher.add_handler(MessageHandler(
-        filters=Filters.regex(constants.help_button) & Filters.private,
-        callback=handlers.soon  # TODO
-    ))
-
     # handle send button
     dispatcher.add_handler(MessageHandler(
         filters=Filters.regex(constants.send_button) & Filters.private,
-        callback=handlers.soon  # TODO
+        callback=handlers.handle_send_to_friend
     ))
 
 
 def setup_inline_handlers():
-    # reboot the bot
+    # handle inline language button
     dispatcher.add_handler(CallbackQueryHandler(
         pattern=constants.lang_inline_button,
         callback=handlers.handle_inline_lang
+    ))
+
+    # handle inline requests
+    dispatcher.add_handler(InlineQueryHandler(
+        callback=handlers.handle_inline,
+        pattern=constants.animals_pattern
     ))
 
 
@@ -139,16 +133,10 @@ def setup_commands_handlers():
         callback=handlers.handle_start
     ))
 
-    # handle command /cat
+    # handle command /cat or /dog
     dispatcher.add_handler(CommandHandler(
-        command=constants.cat_command,
-        callback=handlers.handle_cat
-    ))
-
-    # handle command /dog
-    dispatcher.add_handler(CommandHandler(
-        command=constants.dog_command,
-        callback=handlers.handle_dog
+        command=[constants.cat_command, constants.dog_command],
+        callback=handlers.handle_animal
     ))
 
 
