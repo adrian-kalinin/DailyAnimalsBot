@@ -305,10 +305,15 @@ def handle_animal(update: Update, context: CallbackContext):
         animals = db.get(user_id=update.message.from_user.id, item=animal + 's')
         db.set(user_id=update.message.from_user.id, item=animal + 's', data=animals + 1)
 
-    context.bot.send_photo(
-        chat_id=update.message.chat_id,
-        photo=data[0]['url']
-    )
+    for _ in range(config.max_attempts):
+        try:
+            context.bot.send_photo(
+                chat_id=update.message.chat_id,
+                photo=data[0]['url']
+            )
+            return
+        except TelegramError:
+            pass
 
 
 # send message with choice of languages
@@ -360,7 +365,10 @@ def handle_inline(update: Update, context: CallbackContext):
 
         ))
 
-    update.inline_query.answer(results, cache_time=1)
+    try:
+        update.inline_query.answer(results, cache_time=1)
+    except TelegramError:
+        pass
 
 
 # get markup with switch-buttons, open any chat and insert inline request
