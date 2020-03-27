@@ -7,13 +7,13 @@ Everything is pretty simple – just press a button and then get a picture; or y
 
 ![Example](https://github.com/adreex/DailyAnimalsBot/blob/master/pictures_for_readme/animals.jpg)
 
-Do not forget to use inline mode. It provides you a possibility to send a cat or a dog in any chat. Type the username of the bot and choose one of the pictures.
+Do not forget to use the inline mode. It provides you a possibility to send a cat or a dog in any chat. Type the username of the bot and choose one of the pictures.
 
 ![Example](https://github.com/adreex/DailyAnimalsBot/blob/master/pictures_for_readme/inline.jpg)
 
 # Admin Usage
 
-There are some features for admins of the bot. Firt off all, you should enter /admin command. Then you can check statistics and restart the bot. One more great feature is the possibility to send a message to all users.
+There are some features for admins of the bot. Firt off all, you should enter /admin command. Then you can check statistics and restart the bot. One more great feature is the possibility to send a message to all the users.
 
 ![Example](https://github.com/adreex/DailyAnimalsBot/blob/master/pictures_for_readme/admin.jpg)
 
@@ -21,8 +21,8 @@ There are some features for admins of the bot. Firt off all, you should enter /a
 
 ### Configurate `config.py`:
 
-Create a Telegram Bot at t.me/BotFather and get the token of your bot, then put it as `token` variable.
-Then you can enter for `admins` some ids of users who can use admins' commands.
+Create a new Telegram Bot at t.me/BotFather and get the token of your bot, then put it as `token` variable.
+Then you can enter for `admins` some ids of users who can use the admins' commands.
 Fill your `host` (server's ip) and `port` (443, 80, 88 or 8443).
 
 ### Generate quick'n'dirty SSL certificate (in terminal):
@@ -31,7 +31,7 @@ Fill your `host` (server's ip) and `port` (443, 80, 88 or 8443).
 
 `openssl req -new -x509 -days 3650 -key webhook_pkey.pem -out webhook_cert.pem`
 
-Attention! When asked for "Common Name (e.g. server FQDN or YOUR name)" you should reply with the same value as your server's ip addres
+Attention! When asked for "Common Name (e.g. server FQDN or YOUR name)" you should reply with the same value as your server's ip addres.
 
 ### Create virtual environment for Python and install all requiremetns (in terminal):
 
@@ -41,4 +41,4 @@ Attention! When asked for "Common Name (e.g. server FQDN or YOUR name)" you shou
 
 `pip install -r requiremetns.txt`
 
-Just enter python main.py in your terminal.
+Just enter python `main.py` in your terminal.
