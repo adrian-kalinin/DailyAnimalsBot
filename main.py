@@ -40,7 +40,7 @@ def setup_service_handlers():
         callback=handlers.handle_mailing
     ))
 
-    # send statistics about the bot
+    # send bot's statistics
     dispatcher.add_handler(CallbackQueryHandler(
         pattern=constants.statistics_callback,
         callback=handlers.handle_statistics
@@ -48,7 +48,7 @@ def setup_service_handlers():
 
 
 def setup_mailing_handlers():
-    # cancel adding content to mailing message
+    # cancel changing content to mailing message
     dispatcher.add_handler(MessageHandler(
         filters=(Filters.regex(constants.cancel_adding_button) & filters.adding_filter
                  & Filters.user(user_id=config.admins) & Filters.private),
@@ -69,18 +69,18 @@ def setup_mailing_handlers():
         callback=handlers.handle_send_mailing
     ))
 
-    # send preview of the mailing message
+    # send a preview of the mailing message
     dispatcher.add_handler(MessageHandler(
         filters=(Filters.regex(constants.preview_button) & filters.mailing_filter
                  & Filters.user(user_id=config.admins) & Filters.private),
         callback=handlers.handle_preview
     ))
 
-    # set state before adding to the mailing message
+    # set a state before adding to the mailing message
     dispatcher.add_handler(MessageHandler(
-        filters=(Filters.regex(constants.add_content_button) & filters.mailing_filter
+        filters=(Filters.regex(constants.change_content_button) & filters.mailing_filter
                  & Filters.user(user_id=config.admins) & Filters.private),
-        callback=handlers.handle_add_content
+        callback=handlers.handle_change_content
     ))
 
     # add content to the mailing message

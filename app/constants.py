@@ -55,13 +55,13 @@ admin_markup = {
 mailing_keyboard = {
     'en': [
         ['Send Message', 'Preview'],
-        ['Add Text', 'Add Photo'],
-        ['Add Button', 'Cancel Mailing']
+        ['Change Text', 'Change Photo'],
+        ['Change Button', 'Cancel Mailing']
     ],
     'ru': [
         ['Разослать сообщение', 'Предпросмотр'],
-        ['Добавить текст', 'Добавить фото'],
-        ['Добавить кнопку', 'Отменить рассылку']
+        ['Изменить текст', 'Изменить фото'],
+        ['Изменить кнопку', 'Отменить рассылку']
     ]
 }
 
@@ -101,12 +101,12 @@ animals_button = '|'.join([cat_button, dog_button])
 
 send_mailing_button = '({})|({})'.format(*(item[0][0] for item in mailing_keyboard.values()))
 preview_button = '({})|({})'.format(*(item[0][1] for item in mailing_keyboard.values()))
-add_text_button = '({})|({})'.format(*(item[1][0] for item in mailing_keyboard.values()))
-add_photo_button = '({})|({})'.format(*(item[1][1] for item in mailing_keyboard.values()))
-add_button_button = '({})|({})'.format(*(item[2][0] for item in mailing_keyboard.values()))
+change_text_button = '({})|({})'.format(*(item[1][0] for item in mailing_keyboard.values()))
+change_photo_button = '({})|({})'.format(*(item[1][1] for item in mailing_keyboard.values()))
+change_button_button = '({})|({})'.format(*(item[2][0] for item in mailing_keyboard.values()))
 cancel_mailing_button = '({})|({})'.format(*(item[2][1] for item in mailing_keyboard.values()))
 
-add_content_button = '|'.join([add_text_button, add_photo_button, add_button_button])
+change_content_button = '|'.join([change_text_button, change_photo_button, change_button_button])
 
 cancel_adding_button = '({})|({})'.format(*(item[0][0] for item in cancel_keyboard.values()))
 
@@ -148,15 +148,16 @@ animals_pattern = '(cat)|(dog)'
 # mailing states
 
 states = {
-    mailing_keyboard['en'][1][0]: 'add_text',
-    mailing_keyboard['ru'][1][0]: 'add_text',
-    mailing_keyboard['en'][1][1]: 'add_photo',
-    mailing_keyboard['ru'][1][1]: 'add_photo',
-    mailing_keyboard['en'][2][0]: 'add_button',
-    mailing_keyboard['ru'][2][0]: 'add_button'
+    mailing_keyboard['en'][1][0]: 'change_text',
+    mailing_keyboard['ru'][1][0]: 'change_text',
+    mailing_keyboard['en'][1][1]: 'change_photo',
+    mailing_keyboard['ru'][1][1]: 'change_photo',
+    mailing_keyboard['en'][2][0]: 'change_button',
+    mailing_keyboard['ru'][2][0]: 'change_button'
 }
 
 # messages
+
 
 messages = {
     'menu': {
@@ -166,8 +167,8 @@ messages = {
     },
 
     'admin': {
-        'en': 'Welcome back, Creator!',
-        'ru': 'С возвращением, создатель!'
+        'en': 'Welcome back, Creator! 🖤',
+        'ru': 'С возвращением, создатель! 🖤'
     },
 
     'reboot': {
@@ -218,17 +219,17 @@ messages = {
               'Удаленные пользователи, которые заблокировали бота: <b>{}</b>'
     },
 
-    'add_text': {
+    'change_text': {
         'en': 'Enter the text which will be attached to the mailing list:',
         'ru': 'Введите текст, который будет прикреплен к сообщению для рассылки:'
     },
 
-    'add_photo': {
+    'change_photo': {
         'en': 'Send a picture which will be attached to the message for the mailing:',
         'ru': 'Пришлите картинку, которая будет прикреплена к сообщению для рассылки:'
     },
 
-    'add_button': {
+    'change_button': {
         'en': 'Send a button which will be attached to the message for the newsletter in the format "text - full link":',
         'ru': 'Пришлите кнопку, которая будет прикреплена к сообщению для рассылки в формате "текст - полная ссылка":'
     },
@@ -243,11 +244,6 @@ messages = {
         'ru': 'Формат ввода не соответствует, повторите запрос:'
     },
 
-    'invalid_tags': {
-        'en': 'Make sure all your HTML-tags are valid',
-        'ru': 'Убедитесь, что все ваши HTML-теги корректны'
-    },
-
     'current_lang': {
         'en': 'Current language is English 🇬🇧',
         'ru': 'Текущий язык Русский 🇷🇺'
@@ -259,9 +255,9 @@ messages = {
     },
 
     'switch': {
-        'en': '💬 Pressing a button will prompt you to select one of your chats and send a picture to your friend. '
+        'en': '💬 Pressing a button will prompt you to select one of your chats and send a picture to your friend.\n\n'
               'Now choose what to send: ',
-        'ru': '💬  Нажатие кнопки предложит вам выбрать один из ваших чатов и отправить фотографию своему другу. '
+        'ru': '💬  Нажатие кнопки предложит вам выбрать один из ваших чатов и отправить фотографию своему другу.\n\n'
               'Теперь выберите, что отправить:'
     }
 }

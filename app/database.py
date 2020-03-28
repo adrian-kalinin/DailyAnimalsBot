@@ -28,49 +28,53 @@ class DataBase:
         result = self.conn.execute(f'SELECT user_id FROM {self.name}')
         return [x[0] for x in result]
 
-    def get_cats(self):
+    def get_cats_amount(self):
         result = self.conn.execute(f'SELECT SUM(cats) FROM {self.name}')
         return result.fetchone()[0]
 
-    def get_dogs(self):
+    def get_dogs_amount(self):
         result = self.conn.execute(f'SELECT SUM(dogs) FROM {self.name}')
         return result.fetchone()[0]
 
     def add_user(self, user_id):
         if not self.check_user(user_id):
-            stat = f'INSERT INTO {self.name} (user_id) VALUES (?)'
-            self.conn.execute(stat, [user_id])
+            query = f'INSERT INTO {self.name} (user_id) VALUES (?)'
+            self.conn.execute(query, [user_id])
             self.conn.commit()
 
     def del_user(self, user_id):
-        stat = f'DELETE FROM {self.name} WHERE user_id = (?)'
+        query = f'DELETE FROM {self.name} WHERE user_id = (?)'
         if self.check_user(user_id):
-            self.conn.execute(stat, [user_id])
+            self.conn.execute(query, [user_id])
             self.conn.commit()
 
     def check_user(self, user_id):
-        stat = f'SELECT EXISTS(SELECT 1 FROM {self.name} WHERE user_id = (?));'
-        result = self.conn.execute(stat, [user_id])
+        query = f'SELECT EXISTS(SELECT 1 FROM {self.name} WHERE user_id = (?));'
+        result = self.conn.execute(query, [user_id])
         return result.fetchone()[0]
 
     def get_users_amount(self):
-        stat = f'SELECT Count(*) FROM {self.name}'
-        result = self.conn.execute(stat)
+        query = f'SELECT Count(*) FROM {self.name}'
+        result = self.conn.execute(query)
         return result.fetchone()[0]
 
-    def set(self, user_id, item, data):
-        self.add_user(user_id=user_id)
+    def set_value(self, user_id, item, data):
         if self.check_user(user_id):
-            stat = f'UPDATE {self.name} SET {item} = (?) WHERE user_id = (?)'
-            self.conn.execute(stat, (data, user_id))
-            self.conn.commit()
+            try:
+                query = f'UPDATE {self.name} SET {item} = (?) WHERE user_id = (?)'
+                self.conn.execute(query, (data, user_id))
+                self.conn.commit()
+            except sqlite3.Error:
+                return False
 
-    def get(self, user_id, item):
-        self.add_user(user_id=user_id)
+    def get_value(self, user_id, item):
         if self.check_user(user_id):
-            stat = f'SELECT {item} FROM {self.name} WHERE user_id = (?)'
-            result = self.conn.execute(stat, [user_id]).fetchone()
-            return result[0]
+            try:
+                query = f'SELECT {item} FROM {self.name} WHERE user_id = (?)'
+                result = self.conn.execute(query, [user_id])
+                return result.fetchone()[0]
+            except sqlite3.Error:
+                return False
 
     def close(self):
         self.conn.close()

@@ -11,14 +11,14 @@ class MailingFilter(BaseFilter):
                 return response['state'] == 'mailing'
 
 
-class AddingFilter(BaseFilter):
+class ChangingFilter(BaseFilter):
     def filter(self, message):
         with StateBase() as sb:
             response = sb[message.from_user.id]
             if isinstance(response, dict):
-                return 'add_' in response['state']
+                return 'change_' in response['state']
 
 
 # initialize custom filters
 mailing_filter = MailingFilter()
-adding_filter = AddingFilter()
+adding_filter = ChangingFilter()

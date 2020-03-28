@@ -2,7 +2,7 @@ import pymongo
 
 
 class StateBase:
-    def __init__(self, db_name='bot', coll_name='states'):
+    def __init__(self, db_name='DailyAnimalsBot', coll_name='states'):
         self.client = pymongo.MongoClient()
         self.db = self.client[db_name]
         self.coll = self.db[coll_name]

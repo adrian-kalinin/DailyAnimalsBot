@@ -1,5 +1,5 @@
 from telegram import ChatAction, Update, PhotoSize, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResultPhoto
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, run_async
 from telegram.error import TelegramError, Unauthorized
 
 from threading import Thread
@@ -9,7 +9,7 @@ import requests
 import logging
 
 from .constants import admin_markup, mailing_markup, main_markup, cancel_markup, lang_markup, switch_markup
-from .tools import send_action, stop_and_restart, strip, send_mailing, validate_tags
+from .tools import send_action, stop_and_restart, strip, send_mailing
 from .constants import messages, states
 from .database import DataBase
 from .statebase import StateBase
@@ -44,13 +44,12 @@ def handle_error(update: Update, context: CallbackContext):
 @send_action(ChatAction.TYPING)
 def handle_admin(update: Update, context: CallbackContext):
     with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-
-    context.bot.send_message(
-        chat_id=update.message.from_user.id,
-        text=messages['admin'][lang],
-        reply_markup=admin_markup[lang]
-    )
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            context.bot.send_message(
+                chat_id=update.message.from_user.id,
+                text=messages['admin'][lang],
+                reply_markup=admin_markup[lang]
+            )
 
 
 # restart the bot
@@ -60,161 +59,145 @@ def handle_reboot(update: Update, context: CallbackContext):
     message_id = update.callback_query.message.message_id
 
     with DataBase() as db:
-        lang = db.get(user_id=chat_id, item='lang')
-
-    context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=messages['reboot'][lang])
-    Thread(target=stop_and_restart).start()
+        if lang := db.get_value(user_id=chat_id, item='lang'):
+            context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=messages['reboot'][lang])
+            Thread(target=stop_and_restart).start()
 
 
 # send statistics about the bot
 def handle_statistics(update: Update, context: CallbackContext):
     with DataBase() as db:
-        lang = db.get(user_id=update.callback_query.from_user.id, item='lang')
         users_amount = db.get_users_amount()
-        cats_amount = db.get_cats()
-        dogs_amount = db.get_dogs()
+        cats_amount = db.get_cats_amount()
+        dogs_amount = db.get_dogs_amount()
         total_amount = cats_amount + dogs_amount
 
-    context.bot.edit_message_text(
-        chat_id=update.callback_query.from_user.id,
-        message_id=update.callback_query.message.message_id,
-        text=messages['statistics'][lang].format(users_amount, total_amount, cats_amount, dogs_amount),
-        reply_markup=InlineKeyboardMarkup([[]]),
-        parse_mode='HTML'
-    )
+        if lang := db.get_value(user_id=update.callback_query.from_user.id, item='lang'):
+            context.bot.edit_message_text(
+                chat_id=update.callback_query.from_user.id,
+                message_id=update.callback_query.message.message_id,
+                text=messages['statistics'][lang].format(users_amount, total_amount, cats_amount, dogs_amount),
+                reply_markup=InlineKeyboardMarkup([[]]),
+                parse_mode='HTML'
+            )
 
 
-# make mailing to all users
+# send the mailing form
 def handle_mailing(update: Update, context: CallbackContext):
     chat_id = update.callback_query.from_user.id
     message_id = update.callback_query.message.message_id
-
-    with DataBase() as db:
-        lang = db.get(user_id=chat_id, item='lang')
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
     with StateBase() as sb:
         empty_data = {'text': None, 'photo': None, 'button': None}
         sb[chat_id] = 'mailing', empty_data
 
-    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-
-    markup = mailing_markup[lang]
-    text = messages['mailing'][lang].format(*empty_data.values())
-    context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode='HTML',
-                             disable_web_page_preview=True)
-
-
-# set state before adding content to the message for mailing
-def handle_add_content(update: Update, context: CallbackContext):
-    new_state = states[update.message.text]
-
     with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
+        if lang := db.get_value(user_id=chat_id, item='lang'):
+            markup = mailing_markup[lang]
+            text = messages['mailing'][lang].format(*empty_data.values())
+
+            context.bot.send_message(
+                chat_id=chat_id, text=text, reply_markup=markup,
+                parse_mode='HTML', disable_web_page_preview=True
+            )
+
+
+# set a state before changing any content for the mailing message
+def handle_change_content(update: Update, context: CallbackContext):
+    new_state = states[update.message.text]
 
     with StateBase() as sb:
         response = sb[update.message.from_user.id]
         sb[update.message.from_user.id] = new_state, response['data']
 
-    context.bot.send_message(
-        text=messages[new_state][lang],
-        chat_id=update.message.from_user.id,
-        reply_markup=cancel_markup[lang]
-    )
+    with DataBase() as db:
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            context.bot.send_message(
+                text=messages[new_state][lang],
+                chat_id=update.message.from_user.id,
+                reply_markup=cancel_markup[lang]
+            )
 
 
 # add content to the message for mailing
 def handle_mailing_content(update: Update, context: CallbackContext):
     with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            with StateBase() as sb:
+                response = sb[update.message.from_user.id]
+                content_type = response['state'].replace('change_', '')
 
+                if content_type == 'text':
+                    response['data']['text'] = update.message.text_html
+
+                elif content_type == 'photo':
+                    photo = update.message.photo[0]
+                    response['data']['photo'] = (photo.file_id, photo.width, photo.height)
+
+                elif content_type == 'button':
+                    if '-' in update.message.text:
+                        text, url = map(strip, update.message.text.split('-'))
+
+                        if validators.url(url) and requests.get(url).status_code == 200:
+                            response['data']['button'] = update.message.text
+
+                        else:
+                            context.bot.send_message(
+                                chat_id=update.message.chat_id,
+                                text=messages['broken_url'][lang],
+                                reply_markup=cancel_markup[lang]
+                            )
+                            return
+                    else:
+                        context.bot.send_message(
+                            chat_id=update.message.chat_id,
+                            text=messages['incorrect_button'],
+                            reply_markup=cancel_markup[lang]
+                        )
+                        return
+
+                sb[update.message.from_user.id] = 'mailing', response['data']
+
+            context.bot.send_message(
+                chat_id=update.message.from_user.id,
+                text=messages['mailing'][lang].format(*response['data'].values()),
+                reply_markup=mailing_markup[lang],
+                parse_mode='HTML',
+                disable_web_page_preview=True
+            )
+
+
+# send mailing to everyone
+@run_async
+def handle_send_mailing(update: Update, context: CallbackContext):
     with StateBase() as sb:
         response = sb[update.message.from_user.id]
-        content_type = response['state'].replace('add_', '')
+        with DataBase() as db:
+            if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
 
-        if content_type == 'text':  # TODO validate tags
-            if validate_tags(update.message.text):
-                response['data']['text'] = update.message.text
+                if result := send_mailing(context.bot, response['data']):
+                    context.bot.send_message(
+                        chat_id=update.message.chat_id,
+                        text=messages['mailing_completed'][lang].format(*result),
+                        reply_markup=main_markup[lang],
+                        parse_mode='HTML'
+                    )
 
-            else:
-                context.bot.send_message(
-                    chat_id=update.message.chat_id,
-                    text=messages['invalid_tags'][lang],
-                    reply_markup=cancel_markup[lang]
-                )
-                return
-
-        elif content_type == 'photo':
-            photo = update.message.photo[0]
-            response['data']['photo'] = (photo.file_id, photo.width, photo.height)
-
-        elif content_type == 'button':
-            if '-' in update.message.text:
-                text, url = map(strip, update.message.text.split('-'))
-
-                if validators.url(url) and requests.get(url).status_code == 200:
-                    response['data']['button'] = update.message.text
+                    del sb[update.message.from_user.id]
 
                 else:
                     context.bot.send_message(
                         chat_id=update.message.chat_id,
-                        text=messages['broken_url'][lang],
-                        reply_markup=cancel_markup[lang]
+                        text=messages['no_mailing_data'][lang],
+                        parse_mode='HTML'
                     )
-                    return
-            else:
-                context.bot.send_message(
-                    chat_id=update.message.chat_id,
-                    text=messages['incorrect_button'],
-                    reply_markup=cancel_markup[lang]
-                )
-                return
-
-        sb[update.message.from_user.id] = 'mailing', response['data']
-
-    context.bot.send_message(
-        chat_id=update.message.from_user.id,
-        text=messages['mailing'][lang].format(*response['data'].values()),
-        reply_markup=mailing_markup[lang],
-        parse_mode='HTML',
-        disable_web_page_preview=True
-    )
-
-
-# send mailing to everyone
-def handle_send_mailing(update: Update, context: CallbackContext):
-    with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-
-    with StateBase() as sb:
-        response = sb[update.message.from_user.id]
-        result = send_mailing(context.bot, response['data'])
-
-        if result:
-            context.bot.send_message(
-                chat_id=update.message.chat_id,
-                text=messages['mailing_completed'][lang].format(*result),
-                reply_markup=main_markup[lang],
-                parse_mode='HTML'
-            )
-
-            del sb[update.message.from_user.id]
-
-        else:
-            context.bot.send_message(
-                chat_id=update.message.chat_id,
-                text=messages['no_mailing_data'][lang],
-                parse_mode='HTML'
-            )
 
 
 # send preview of the mailing message
 def handle_preview(update: Update, context: CallbackContext):
-    with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-
     with StateBase() as sb:
         response = sb[update.message.from_user.id]
-
         data = response['data']
         markup = data['button']
 
@@ -227,72 +210,72 @@ def handle_preview(update: Update, context: CallbackContext):
             context.bot.send_photo(
                 chat_id=update.message.chat_id,
                 photo=PhotoSize(*data['photo']),
-                caption=data['text'],
+                caption=data['text'], parse_mode='HTML',
                 reply_markup=markup
             )
 
         elif data['text']:
             context.bot.send_message(
                 chat_id=update.message.chat_id,
-                text=data['text'],
+                text=data['text'], parse_mode='HTML',
                 reply_markup=markup
             )
 
         else:
-            context.bot.send_message(
-                chat_id=update.message.chat_id,
-                text=messages['no_mailing_data'][lang],
-                parse_mode='HTML'
-            )
+            with DataBase() as db:
+                if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+                    context.bot.send_message(
+                        chat_id=update.message.chat_id,
+                        text=messages['no_mailing_data'][lang],
+                        parse_mode='HTML'
+                    )
 
 
 # cancel add content
 def handle_cancel_adding(update: Update, context: CallbackContext):
-    with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-
     with StateBase() as sb:
         data = sb[update.message.from_user.id]['data']
         sb[update.message.from_user.id] = 'mailing', data
 
-    context.bot.send_message(
-        text=messages['mailing'][lang].format(*data.values()),
-        chat_id=update.message.chat_id,
-        reply_markup=mailing_markup[lang],
-        parse_mode='HTML'
-    )
+    with DataBase() as db:
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            context.bot.send_message(
+                text=messages['mailing'][lang].format(*data.values()),
+                chat_id=update.message.chat_id,
+                reply_markup=mailing_markup[lang],
+                parse_mode='HTML'
+            )
 
 
 # cancel mailing
 def handle_cancel_mailing(update: Update, context: CallbackContext):
-    with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-
     with StateBase() as sb:
         del sb[update.message.from_user.id]
 
-    context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text=messages['cancel_mailing'][lang],
-        reply_markup=main_markup[lang]
-    )
+    with DataBase() as db:
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            context.bot.send_message(
+                chat_id=update.message.chat_id,
+                text=messages['cancel_mailing'][lang],
+                reply_markup=main_markup[lang]
+            )
 
 
-# add a new user to the database and send him start message with main markup
+# add a new user to the database and send him a start message with the main markup
 @send_action(ChatAction.TYPING)
 def handle_start(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
 
     with DataBase() as db:
         db.add_user(user_id=user_id)
-        lang = db.get(user_id=user_id, item='lang')
 
-    context.bot.send_message(
-        chat_id=user_id,
-        text=messages['menu'][lang],
-        reply_markup=main_markup[lang],
-        parse_mode='HTML'
-    )
+        if lang := db.get_value(user_id=user_id, item='lang'):
+            context.bot.send_message(
+                chat_id=user_id,
+                text=messages['menu'][lang],
+                reply_markup=main_markup[lang],
+                parse_mode='HTML'
+            )
 
 
 # send a picture with a cat or a dog to the user
@@ -302,8 +285,8 @@ def handle_animal(update: Update, context: CallbackContext):
     with DataBase() as db:
 
         data = requests.get(config.api_base_url.format(animal)).json()
-        animals = db.get(user_id=update.message.from_user.id, item=animal + 's')
-        db.set(user_id=update.message.from_user.id, item=animal + 's', data=animals + 1)
+        animals = db.get_value(user_id=update.message.from_user.id, item=animal + 's')
+        db.set_value(user_id=update.message.from_user.id, item=animal + 's', data=animals + 1)
 
     for _ in range(config.max_attempts):
         try:
@@ -320,34 +303,33 @@ def handle_animal(update: Update, context: CallbackContext):
 @send_action(ChatAction.TYPING)
 def handle_change_lang(update: Update, context: CallbackContext):
     with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-
-    context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text=messages['current_lang'][lang],
-        reply_markup=lang_markup
-    )
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            context.bot.send_message(
+                chat_id=update.message.chat_id,
+                text=messages['current_lang'][lang],
+                reply_markup=lang_markup
+            )
 
 
 # change language
 def handle_inline_lang(update: Update, context: CallbackContext):
     with DataBase() as db:
-        current_lang = db.get(user_id=update.callback_query.message.chat_id, item='lang')
-        new_lang = update.callback_query.data.replace('change_lang_', '')
+        if current_lang := db.get_value(user_id=update.callback_query.message.chat_id, item='lang'):
+            new_lang = update.callback_query.data.replace('change_lang_', '')
 
-        if not current_lang == new_lang:
-            db.set(user_id=update.callback_query.message.chat_id, item='lang', data=new_lang)
+            if not current_lang == new_lang:
+                db.set_value(user_id=update.callback_query.message.chat_id, item='lang', data=new_lang)
 
-        context.bot.delete_message(
-            chat_id=update.callback_query.message.chat_id,
-            message_id=update.callback_query.message.message_id
-        )
+            context.bot.delete_message(
+                chat_id=update.callback_query.message.chat_id,
+                message_id=update.callback_query.message.message_id
+            )
 
-        context.bot.send_message(
-            chat_id=update.callback_query.message.chat_id,
-            text=messages['changed'][new_lang],
-            reply_markup=main_markup[new_lang]
-        )
+            context.bot.send_message(
+                chat_id=update.callback_query.message.chat_id,
+                text=messages['changed'][new_lang],
+                reply_markup=main_markup[new_lang]
+            )
 
 
 # send inline result
@@ -374,9 +356,9 @@ def handle_inline(update: Update, context: CallbackContext):
 # get markup with switch-buttons, open any chat and insert inline request
 def handle_send_to_friend(update: Update, context: CallbackContext):
     with DataBase() as db:
-        lang = db.get(user_id=update.message.from_user.id, item='lang')
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text=messages['switch'][lang],
-            reply_markup=switch_markup[lang]
-        )
+        if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
+            context.bot.send_message(
+                chat_id=update.message.chat_id,
+                text=messages['switch'][lang],
+                reply_markup=switch_markup[lang]
+            )
