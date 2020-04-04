@@ -39,6 +39,9 @@ def handle_error(update: Update, context: CallbackContext):
                 parse_mode='HTML'
             )
 
+    except KeyError as ex:
+        logging.error(ex)
+
 
 # send owner the admin markup
 @send_action(ChatAction.TYPING)
@@ -71,12 +74,16 @@ def handle_statistics(update: Update, context: CallbackContext):
         cats_amount = db.get_cats_amount()
         dogs_amount = db.get_dogs_amount()
         total_amount = cats_amount + dogs_amount
+        languages = db.get_languages()
 
         if lang := db.get_value(user_id=update.callback_query.from_user.id, item='lang'):
             context.bot.edit_message_text(
                 chat_id=update.callback_query.from_user.id,
                 message_id=update.callback_query.message.message_id,
-                text=messages['statistics'][lang].format(users_amount, total_amount, cats_amount, dogs_amount),
+                text=messages['statistics'][lang].format(
+                    users_amount, total_amount, cats_amount,
+                    dogs_amount, *languages.values()
+                ),
                 reply_markup=InlineKeyboardMarkup([[]]),
                 parse_mode='HTML'
             )
@@ -176,15 +183,24 @@ def handle_send_mailing(update: Update, context: CallbackContext):
         with DataBase() as db:
             if lang := db.get_value(user_id=update.message.from_user.id, item='lang'):
 
-                if result := send_mailing(context.bot, response['data']):
+                mailing = send_mailing(context.bot, response['data'])
+                if next(mailing):
+                    context.bot.send_message(
+                        chat_id=update.message.chat_id,
+                        text=messages['started_mailing'][lang],
+                        reply_markup=main_markup[lang],
+                        parse_mode='HTML'
+                    )
+
+                    del sb[update.message.from_user.id]
+                    result = next(mailing)
+
                     context.bot.send_message(
                         chat_id=update.message.chat_id,
                         text=messages['mailing_completed'][lang].format(*result),
                         reply_markup=main_markup[lang],
                         parse_mode='HTML'
                     )
-
-                    del sb[update.message.from_user.id]
 
                 else:
                     context.bot.send_message(
@@ -279,6 +295,7 @@ def handle_start(update: Update, context: CallbackContext):
 
 
 # send a picture with a cat or a dog to the user
+@run_async
 @send_action(ChatAction.UPLOAD_PHOTO)
 def handle_animal(update: Update, context: CallbackContext):
     animal = constants.animals[update.message.text]
@@ -333,6 +350,7 @@ def handle_inline_lang(update: Update, context: CallbackContext):
 
 
 # send inline result
+@run_async
 def handle_inline(update: Update, context: CallbackContext):
     animal = update.inline_query.query
     results = set()

@@ -76,5 +76,10 @@ class DataBase:
             except sqlite3.Error:
                 return False
 
+    def get_languages(self):
+        en_users = self.conn.execute(f'SELECT Count(*) FROM {self.name} WHERE lang = "en"')
+        ru_users = self.conn.execute(f'SELECT Count(*) FROM {self.name} WHERE lang = "ru"')
+        return {'en': en_users.fetchone()[0], 'ru': ru_users.fetchone()[0]}
+
     def close(self):
         self.conn.close()

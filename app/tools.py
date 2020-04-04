@@ -36,6 +36,11 @@ def send_mailing(bot, data: dict):
     successful, failed = 0, 0
     markup = None
 
+    if data['photo'] or data['text']:
+        yield True
+    else:
+        yield False
+
     if data['button']:
         text, url = map(strip, data['button'].split('-'))
         button = InlineKeyboardButton(text, url=url)
@@ -55,21 +60,20 @@ def send_mailing(bot, data: dict):
                 elif data['text']:
                     bot.send_message(
                         chat_id=user_id, text=data['text'],
-                        reply_markup=markup, parse_mode='HTML'
+                        reply_markup=markup, parse_mode='HTML',
+                        disable_notification=True  # TODO: delete in production
                     )
-
-                else:
-                    return False
 
                 successful += 1
                 time.sleep(1 / 20)
 
-            except NetworkError as ex:  # TODO: understand what the fuck is happening here
-                print(f'{user_id} - fail:\n{ex}')
-                # return 0, 0
+            except NetworkError as ex:
+                if ex == 'Chat not found':
+                    db.del_user(user_id=user_id)
+                    failed += 1
 
             except TelegramError:
                 db.del_user(user_id=user_id)
                 failed += 1
 
-        return successful, failed
+        yield successful, failed
